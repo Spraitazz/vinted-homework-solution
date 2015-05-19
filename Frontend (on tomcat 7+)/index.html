@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <head>
+    <title>Vinted Frontend Homework</title>
+	  <script src="//cdnjs.cloudflare.com/ajax/libs/json2/20110223/json2.js"></script>
+	  <script src="https://ajax.googleapis.com/ajax/libs/jquery/2.1.3/jquery.min.js"></script>
+	  <script src="https://raw.github.com/andris9/jStorage/master/jstorage.js"></script>
+    <link rel="stylesheet" href="//cdn.jsdelivr.net/pure/0.5.0/pure-min.css">
+    <link rel="stylesheet" href="http://yui.yahooapis.com/pure/0.5.0/grids-responsive-min.css">
+	  <link href="/Vinted/infiniteCSS.css" rel="stylesheet">
+  </head>
+  <body>
+    <div class="pure-g" id="btnCont">
+	  <div class="pure-u-1 pure-u-sm-7-24 pure-u-md-7-24 pure-u-lg-9-24"></div>
+	  <div class="pure-u-1 pure-u-sm-12-24 pure-u-md-9-24 pure-u-lg-7-24" id="buttonContainer">    
+      <button id="startDribbble">Browse Dribbble</button>
+	  </div>
+	  <div class="pure-u-1 pure-u-sm-5-24 pure-u-md-8-24 pure-u-lg-8-24"></div>
+    </div>	
+	  <div class="pure-g" id="imgHolder"></div>  	
+  </body>
+  <script>
+  "use strict";
+  function removeElement(id) {
+    var element = document.getElementById(id);
+    element.parentNode.removeChild(element);
+  }
+ 
+  function getURLParameters() {
+  //assuming nice url    
+    var params={};
+    var query = location.search.substring(1);
+    var paramStrings = query.split("&");
+    for (var i = 0; i < paramStrings.length; i++){
+      var thisPair = paramStrings[i].split("=");  
+      var paramName = thisPair[0];
+      var paramValue = thisPair[1]
+      params[paramName] = paramValue;  
+    }
+    return params;
+  }
+  
+  //begin authentication - get code
+  
+  $("#startDribbble").click(function() {  
+    window.location.replace("https://dribbble.com/oauth/authorize?client_id=5d13135275ba32e64efb20f18bb1d99e8aaf3a2bccbb06818ba12974c21ceb22&scope=public+write+upload&redirect_uri=http://127.0.0.1/Vinted");
+  });
+  
+  var urlParameters = getURLParameters();
+  var codeValue = $.jStorage.get("code", "d");
+  var codePre = urlParameters["code"];
+
+  if (typeof codePre != "undefined" || codeValue!="d") {
+    //have code - proceed with authentication
+    var code = "";
+	
+	if (typeof codePre != "undefined") {
+	  $.jStorage.set("code", codePre);
+      window.location.replace("http://127.0.0.1/Vinted");
+    } else {
+      code = codeValue;
+      $.jStorage.deleteKey("code");   
+    }  
+  
+	  $("#btnCont").css("display", "none");
+	  
+	  var accessToken="";
+	 
+	  //do final authentication request for token
+	  
+	  if (code.trim().length>0){
+	 
+      $.ajax({ 
+        type: "GET", 
+        url: "/Vinted/PrepareCorsRequest",
+        data: {code: code},  
+        dataType: "json"
+      }).done(function(data){ 
+
+        //have token now  
+        
+        accessToken = data["access_token"]; 
+        var currentPage = 1;
+        var dribbbleNo = 0;
+        var timeoutSet = false;
+        var canFavourite = false;
+        var favouriteBucketId=-1;
+        
+        //check if "favourite" bucket exists, if not, create
+        
+        $.ajax({
+          type: "GET",
+          url: "https://api.dribbble.com/v1/user/buckets",
+          data: { access_token: accessToken },
+          dataType: "json"
+        }).done(function(data) {
+        
+          for (var i = 0; i < data.length; i++) {
+            if (data[i].name.toLowerCase() == "my favourite shots"){
+              //bucket exists, only add to it
+              canFavourite = true;
+              favouriteBucketId = data[i].id;
+            }
+          }
+          
+          if (canFavourite == false) {
+            //create bucket 
+            $.ajax({
+              type: "POST",
+              url: "https://api.dribbble.com/v1/buckets",
+              data: { access_token: accessToken,
+              name: "my favourite shots",
+              description: "shots added using vinted homework assignment by Jonas" }  
+            }).done(function(data) {
+              canFavourite = true;
+              favouriteBucketId = data["id"];
+            });
+            }        
+        
+        });
+        
+        //proceed to get shots
+        
+
+        function getShots(){
+       
+          $.ajax({
+            type: "GET",
+            url: "https://api.dribbble.com/v1/shots",
+            data: {access_token: accessToken, timeframe: "month", page: currentPage.toString(), per_page: "15"},
+            dataType: "json"  
+          }).done(function(data){
+
+            //got shots  
+            
+            for (var i = dribbbleNo+1; i<dribbbleNo+16; i++) { 
+
+              //place shots as img
+              //append img to holder div so as to add favourite button later on
+              
+              $("<img/>", {  
+                src: data[i%15].images.normal,  
+                "class": "pure-img",
+                id: "dribbble"+i.toString()
+              }).appendTo($("<div/>", {
+                "class": "pure-u-1 pure-u-md-1-2 pure-u-lg-1-3 pure-u-xl-4",
+                id: "dribbbleContainer"+i.toString(),
+                "data-id": data[i%15].id,
+                on: {
+                  mouseenter: function() { 
+                    //make favourite button appear, append to div
+                    var buttonId = "dribbble"+$(this).attr("id").substring(17)+"FavBtn"; 
+                    $("<button/>", {
+                      "class": "favouriteButton",  
+                      id: buttonId,
+                      on: {
+                      click: function() {
+                        if (canFavourite == true) {
+                        
+                        //calling servlet to overcome cors ajax blocking
+                        
+                          $.ajax({
+                            type: "GET",
+                            url: "/Vinted/BucketFavouriteServlet",
+                            data: { shot_id: $(this).parent().attr("data-id"),
+                            access_token: accessToken,
+                            bucket_id: favouriteBucketId }                            
+                          }).done(function() {
+                          
+                            //favourited successfully
+                          
+                          });
+                          
+                        }
+                        
+                      }  
+                      },
+                      text: "Favourite"  
+                    }).appendTo(this); 
+                  },
+                  mouseleave: function() {
+                    removeElement("dribbble"+$(this).attr("id").substring(17)+"FavBtn");
+                  }
+                }  
+              }).appendTo("#imgHolder"));               
+            }
+            
+            //keep track of shot number, page number to help scrolling
+            
+            dribbbleNo = dribbbleNo + 15;
+            currentPage = currentPage + 1;
+            timeoutSet = false;
+            
+          });
+        }        
+        getShots();
+        
+        //get first 15 shots, then wait for scroll
+        
+        var now = new Date().getTime();
+       
+        $(window).on("scroll", function() {
+          
+          //check position of scrollbar
+          
+          var windowElement = $(window);
+          var scrolled = windowElement.scrollTop();
+          var docHeight = $(document).height();
+          if ((scrolled > 0) && ((scrolled > (0.8*docHeight)) || (scrolled + 700 > docHeight))) { 
+            
+            //correct position
+            
+            if ((new Date().getTime() - now > 250) && ($("#dribbble"+(currentPage*15).toString()).length)) {
+              
+              //scroll event not fired recently - get shots
+              
+              now = new Date().getTime();
+              getShots();
+            }
+            else {
+              
+              //scroll fired recently
+              
+              if (timeoutSet == false) {
+              timeoutSet=true;
+              window.setTimeout(function(){ getShots() }, 500);
+              }
+            }
+          }
+        });  
+        
+        });  
+      
+      }
+	  
+	  }  
+  </script>
+  
+</html>
+

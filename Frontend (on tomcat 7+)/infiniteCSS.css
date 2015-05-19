@@ -1,0 +1,86 @@
+body { background-color: #e6e6fa; }
+
+#startDribbble {
+  background-color: #e97c5f;
+  border-radius: 3%;
+  white-space: normal;
+  width: 70%;
+  margin-left: 15%;
+  font-size: 1.6em;
+  border: 0;
+}
+
+#startDribbble:hover { background-color: orange; }
+
+#btnCont { margin-top: 20%; }
+
+@media screen and (min-width: 35.5em) {
+
+  #btnCont{ margin-left: 0; }
+
+  #startDribbble {
+    width: 99%;
+    margin-left: 0;
+    font-size: 1.8em;
+  }
+}
+
+div[id*="dribbbleContainer"] {
+  margin-top: 1em;
+  max-width: 400px;
+  position: relative;
+  max-width: 400px;
+}
+
+#dribbbleContainer1 { margin-top: 0; }
+
+.favouriteButton {
+  display: block;
+  background-color: Transparent;
+  position: absolute; 
+  width: 130px;
+  height: 40px;
+  font-size: 24px;
+  border: 3px solid white;
+  font-weight: bold;
+  color: white;
+  border-radius: 50%;
+  top: 70%;
+  left: 32%;
+  z-index: 1000;
+}
+
+.favouriteButton:hover {
+  color: black;
+  border-color: black;
+}
+
+@media screen and (min-width: 27em) {
+  
+  #startDribbble { width: 70%; }
+  
+}
+
+@media screen and (min-width: 48em) {
+
+  #dribbble1 { margin-top: 1em; } 
+  .favouriteButton { left: 37%; }  
+  div[id*="dribbbleContainer"] { padding-left: 10px; }  
+  #startDribbble { width: 80%; } 
+  
+}
+
+@media screen and (min-width: 58em) {
+
+  #startDribbble { width: 85%; } 
+
+}
+
+@media screen and (min-width: 64em) {
+   
+  #startDribbble {  
+    font-size: 2.2em;
+    width: 82%;
+  }
+  
+}
